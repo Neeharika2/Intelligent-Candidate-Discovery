@@ -1,0 +1,14 @@
+*.json
+*.doc
+*.docx
+*.xls
+*.csv
+/docs
+/sample
+plan.md
+/.pytest_cache
+__pycache__/
+*.pyc
+precomputed/
+data/output/
+
