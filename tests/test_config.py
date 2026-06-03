@@ -4,7 +4,8 @@ from src import config
 def test_paths():
     assert isinstance(config.PROJECT_ROOT, Path)
     assert config.SRC_DIR.name == "src"
-    assert config.DATA_DIR.name == "requirements"
+    assert config.DATA_DIR.name == "data"
+    assert config.SAMPLE_DIR.name == "sample"
     assert config.PRECOMPUTED_DIR.name == "precomputed"
 
 def test_model_settings():

@@ -7,7 +7,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 SRC_DIR = PROJECT_ROOT / "src"
-DATA_DIR = PROJECT_ROOT / "requirements"
+DATA_DIR = PROJECT_ROOT / "data"
+SAMPLE_DIR = PROJECT_ROOT / "sample"
 PRECOMPUTED_DIR = PROJECT_ROOT / "precomputed"
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 TESTS_DIR = PROJECT_ROOT / "tests"
@@ -15,7 +16,9 @@ DOCS_DIR = PROJECT_ROOT / "docs"
 
 # Input / Output files
 INPUT_JSONL = DATA_DIR / "candidates.jsonl"
-SAMPLE_JSON = DATA_DIR / "sample_candidates.json"
+SAMPLE_JSONL = SAMPLE_DIR / "candidates.jsonl"
+SAMPLE_JSON = SAMPLE_DIR / "sample_candidates.json"
+SCHEMA_PATH = SAMPLE_DIR / "candidate_schema.json"
 OUTPUT_DIR = DATA_DIR / "output"
 OUTPUT_CSV = OUTPUT_DIR / "submission.csv"
 
