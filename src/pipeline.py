@@ -17,13 +17,10 @@ def run_precompute(
     candidates_path: str,
     jd_path: str,
     output_dir: str,
-    api_key: str = None,
-    google_api_key: str = None,
     deepseek_api_key: str = None,
 ):
     os.makedirs(output_dir, exist_ok=True)
 
-    g_key = google_api_key or api_key
     ds_key = deepseek_api_key
 
     candidates = load_candidates(candidates_path)
