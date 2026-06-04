@@ -1,153 +1,181 @@
-import os
-from pathlib import Path
+import math
 
-# ==============================================================================
-# 1. Project Directory Structure and Paths
-# ==============================================================================
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-
-SRC_DIR = PROJECT_ROOT / "src"
-DATA_DIR = PROJECT_ROOT / "data"
-SAMPLE_DIR = PROJECT_ROOT / "sample"
-PRECOMPUTED_DIR = PROJECT_ROOT / "precomputed"
-SCRIPTS_DIR = PROJECT_ROOT / "scripts"
-TESTS_DIR = PROJECT_ROOT / "tests"
-DOCS_DIR = PROJECT_ROOT / "docs"
-
-# Input / Output files
-INPUT_JSONL = DATA_DIR / "candidates.jsonl"
-SAMPLE_JSONL = SAMPLE_DIR / "candidates.jsonl"
-SAMPLE_JSON = SAMPLE_DIR / "sample_candidates.json"
-SCHEMA_PATH = SAMPLE_DIR / "candidate_schema.json"
-OUTPUT_DIR = DATA_DIR / "output"
-OUTPUT_CSV = OUTPUT_DIR / "submission.csv"
-
-# Precomputed artifact paths
-FEATURE_PARQUET_PATH = PRECOMPUTED_DIR / "candidate_features.parquet"
-CANDIDATE_EMBEDDINGS_PATH = PRECOMPUTED_DIR / "candidate_embeddings.npy"
-SKILL_EMBEDDINGS_PATH = PRECOMPUTED_DIR / "skill_embeddings.npy"
-FAISS_INDEX_PATH = PRECOMPUTED_DIR / "faiss_index.bin"
-BM25_INDEX_PATH = PRECOMPUTED_DIR / "bm25_index.pkl"
-HONEYPOT_FLAGS_PATH = PRECOMPUTED_DIR / "honeypot_flags.json"
-CANDIDATE_IDS_PATH = PRECOMPUTED_DIR / "candidate_ids.json"
-JD_EMBEDDINGS_PATH = PRECOMPUTED_DIR / "jd_embeddings.json"
-
-# ==============================================================================
-# 2. Model Settings
-# ==============================================================================
-EMBED_MODEL = "gemini-embedding-2"
-EMBEDDING_DIM = 768
-CROSS_ENCODER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
-EMBED_BATCH_SIZE = 100
-
-# ==============================================================================
-# 3. Retrieval Settings
-# ==============================================================================
-FAISS_INDEX_TYPE = "IVFFlat"
-FAISS_NLIST = 100
-FAISS_NPROBE = 10
-
-# Cascade filter top-K parameters
-RETRIEVAL_TOP_K = 2000
-RERANK_TOP_K = 200
-FINAL_TOP_K = 100
-
-# Reciprocal Rank Fusion (RRF) parameters
-RRF_K = 60
-
-# ==============================================================================
-# 4. Multi-Factor Scoring Weights and Thresholds
-# ==============================================================================
-
-# Final composite score weights (must sum to 1.0)
-WEIGHT_SEMANTIC = 0.25
-WEIGHT_SKILL = 0.25
-WEIGHT_CAREER = 0.20
-WEIGHT_EXPERIENCE = 0.10
-WEIGHT_BEHAVIOR = 0.15
-WEIGHT_LOCATION = 0.05
-
-# A. Semantic Fit Component weights (must sum to 1.0)
-WEIGHT_SEMANTIC_PROFILE = 0.60
-WEIGHT_SEMANTIC_SKILLS = 0.40
-
-# B. Skill Match Component weights (must sum to 1.0)
-WEIGHT_SKILL_MUST_HAVE = 0.70
-WEIGHT_SKILL_NICE_TO_HAVE = 0.20
-WEIGHT_SKILL_ASSESSMENT = 0.10
-
-# Core target skills from the JD
-CORE_SKILLS_MUST_HAVE = [
-    "embeddings", "sentence-transformers", "retrieval", "vector database",
-    "faiss", "qdrant", "pinecone", "milvus", "weaviate", "elasticsearch",
-    "python", "ranking", "nlp", "search", "ml", "machine learning"
-]
-
-CORE_SKILLS_NICE_TO_HAVE = [
-    "lora", "qlora", "peft", "fine-tuning", "xgboost", "learning-to-rank",
-    "distributed systems", "llm", "rag", "recommendation systems"
-]
-
-# Skill proficiency weights
-SKILL_PROFICIENCY_WEIGHTS = {
-    "beginner": 0.30,
-    "intermediate": 0.60,
-    "advanced": 0.85,
-    "expert": 1.00
+CORE_ML_SKILLS = {
+    "machine learning", "deep learning", "neural networks", "pytorch", "tensorflow",
+    "scikit-learn", "xgboost", "lightgbm", "model training", "model evaluation",
+    "feature engineering", "statistical modeling", "regression", "classification"
 }
 
-# C. Career Trajectory Component weights (must sum to 1.0)
-WEIGHT_CAREER_PRODUCT_RATIO = 0.35
-WEIGHT_CAREER_DEPLOY_SCORE = 0.30
-WEIGHT_CAREER_STABILITY = 0.20
-WEIGHT_CAREER_IC_ROLE = 0.15
+RETRIEVAL_SKILLS = {
+    "information retrieval", "search", "elasticsearch", "opensearch", "solr",
+    "bm25", "tf-idf", "ranking", "learning to rank", "recommendation systems",
+    "collaborative filtering", "content-based filtering"
+}
 
-# Career keywords that signal production experience
-DEPLOYMENT_KEYWORDS = [
-    "shipped", "deployed", "production", "users", "scale",
-    "real-time", "pipeline", "system", "infrastructure", "latency",
-    "throughput", "optimization", "operational", "monitoring", "kubernetes"
+EMBEDDING_SKILLS = {
+    "embeddings", "sentence-transformers", "word2vec", "fasttext", "bert",
+    "transformers", "huggingface", "vector search", "semantic search",
+    "dense retrieval", "approximate nearest neighbors"
+}
+
+VECTOR_DB_SKILLS = {
+    "faiss", "pinecone", "weaviate", "qdrant", "milvus", "chroma",
+    "vector database", "annoy", "scann"
+}
+
+LLM_SKILLS = {
+    "llm", "large language models", "gpt", "fine-tuning", "fine-tuning llms",
+    "lora", "qlora", "peft", "rlhf", "prompt engineering", "rag",
+    "retrieval augmented generation", "langchain", "llama", "mistral"
+}
+
+NLP_SKILLS = {
+    "nlp", "natural language processing", "text classification", "ner",
+    "named entity recognition", "sentiment analysis", "text mining",
+    "tokenization", "spacy", "nltk"
+}
+
+PYTHON_SKILLS = {
+    "python", "flask", "fastapi", "django", "pandas", "numpy"
+}
+
+WRONG_DOMAIN_SKILLS = {
+    "computer vision", "image classification", "object detection", "opencv",
+    "speech recognition", "tts", "text to speech", "robotics", "ros",
+    "gans", "image segmentation", "yolo", "cnn for images"
+}
+
+ALL_RELEVANT_SKILLS = CORE_ML_SKILLS | RETRIEVAL_SKILLS | EMBEDDING_SKILLS | VECTOR_DB_SKILLS | LLM_SKILLS | NLP_SKILLS | PYTHON_SKILLS
+
+WEIGHTS = {
+    "technical_fit": 0.45,
+    "experience_fit": 0.25,
+    "behavioral": 0.20,
+    "location": 0.10,
+}
+
+POSITIVE_CAREER_PHRASES = [
+    "built and deployed", "shipped to production", "production ml",
+    "production machine learning", "ranking system", "recommendation system",
+    "search infrastructure", "retrieval system", "embedding", "vector search",
+    "a/b test", "deployed model", "served model", "real-time inference",
+    "training pipeline", "feature store", "model monitoring",
+    "end-to-end ml", "ml pipeline", "data pipeline for ml",
+    "fine-tuned", "fine-tuning", "model evaluation", "ndcg", "mrr",
+    "real users", "production deployment", "latency optimization",
+    "scaled to", "millions of", "inference", "batch prediction",
 ]
 
-# Roles or keywords that signal non-individual contributor or management track
-MANAGEMENT_KEYWORDS = [
-    "manager", "vp", "director", "head of", "lead manager", "cto",
-    "chief", "product manager", "scrum master", "delivery manager"
+NEGATIVE_CAREER_PHRASES = [
+    "my own technical depth in ai is limited",
+    "technical depth is limited", "limited technical",
+    "experimenting with chatgpt", "experimented with",
+    "ai-strategy advisory", "ai-assisted content",
+    "curious about how ai", "exploring ai",
+    "adjacent to ml", "lighter on technical depth",
+    "no production deployment", "self-directed ml projects",
+    "completed a couple of", "building competence",
 ]
 
-# D. Experience Fit parameters (Gaussian centered at ideal)
-IDEAL_YOE = 7.0
-YOE_SIGMA = 3.0
+CONSULTING_INDUSTRIES = {
+    "IT Services", "Consulting", "Professional Services", "Staffing", "Outsourcing"
+}
 
-# E. Behavioral / Engagement Component weights (must sum to 1.0)
-WEIGHT_BEH_RESPONSE_RATE = 0.30
-WEIGHT_BEH_RECENCY = 0.20
-WEIGHT_BEH_OPEN_TO_WORK = 0.15
-WEIGHT_BEH_RESPONSE_SPEED = 0.10
-WEIGHT_BEH_INTERVIEW_RATE = 0.10
-WEIGHT_BEH_NOTICE_PERIOD = 0.05
-WEIGHT_BEH_PROFILE_COMPLETENESS = 0.05
-WEIGHT_BEH_VERIFIED_CONTACT = 0.05  # verified email + phone split equally
+PREFERRED_CITIES = {"pune", "noida"}
+TIER1_INDIAN_CITIES = {
+    "hyderabad", "mumbai", "delhi", "delhi ncr", "bangalore",
+    "bengaluru", "gurgaon", "gurugram", "chennai", "kolkata"
+}
 
-# F. Location & Logistics Component weights (must sum to 1.0)
-WEIGHT_LOC_COUNTRY = 0.40
-WEIGHT_LOC_CITY = 0.30
-WEIGHT_LOC_RELOCATE = 0.20
-WEIGHT_LOC_WORK_MODE = 0.10
+CITY_ALIASES = {
+    "gurgaon": "gurugram",
+    "bangalore": "bengaluru",
+    "new delhi": "delhi",
+    "national capital region": "delhi ncr",
+    "ncr": "delhi ncr",
+}
 
-PREFERRED_CITIES = [
-    "pune", "noida", "delhi", "gurgaon", "mumbai",
-    "hyderabad", "bangalore", "chennai"
+RETRIEVAL_TOP_K_BM25 = 2000
+RETRIEVAL_TOP_K_FAISS = 2000
+RRF_K = 60
+
+RERANK_TOP_N = 500
+RERANK_BATCH_SAVE_EVERY = 50
+RERANK_MODEL = "deepseek-v4-flash"
+
+DEEPSEEK_API_KEY = None  # Set from env or .env
+DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
+
+EMBEDDING_MODEL = "bge-m3"
+EMBEDDING_BATCH_SIZE = 32
+EMBEDDING_CHECKPOINT_EVERY = 10
+
+BGE_M3_API_URL = "http://192.168.31.246:5000/embed"
+BGE_M3_EMBEDDING_DIM = 1024
+BGE_M3_REQUEST_TIMEOUT = 60
+BGE_M3_MAX_RETRIES = 5
+
+SCORE_TIERS = [
+    (0.75, 1.00, 0.85, 1.00),
+    (0.50, 0.75, 0.55, 0.85),
+    (0.25, 0.50, 0.25, 0.55),
+    (0.00, 0.25, 0.00, 0.25),
 ]
 
-# ==============================================================================
-# 5. Determinism and Sorting
-# ==============================================================================
-RANDOM_SEED = 42
-SORT_KEYS = ["score", "candidate_id"]
 
-# ==============================================================================
-# 6. Environment Variables and Keys
-# ==============================================================================
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_ENDPOINT = os.getenv("GEMINI_ENDPOINT", None)
+SKILL_ALIASES = {
+    "rag": "retrieval augmented generation",
+    "llms": "large language models",
+    "large language model": "large language models",
+    "nlp": "natural language processing",
+    "ml": "machine learning",
+    "dl": "deep learning",
+    "cv": "computer vision",
+    "k8s": "kubernetes",
+    "tf": "tensorflow",
+    "sklearn": "scikit-learn",
+    "sk learn": "scikit-learn",
+    "hf": "huggingface",
+    "hugging face": "huggingface",
+    "ann": "approximate nearest neighbors",
+    "ltr": "learning to rank",
+    "ir": "information retrieval",
+}
+
+
+def normalize_skill_name(name: str) -> str:
+    n = name.lower().strip()
+    n = n.replace("-", " ").replace("_", " ")
+    return SKILL_ALIASES.get(n, n)
+
+
+def skill_matches_taxonomy(skill_name: str, taxonomy: set) -> bool:
+    normalized = normalize_skill_name(skill_name)
+    for term in taxonomy:
+        if normalized == term or term in normalized or normalized in term:
+            return True
+    return False
+
+
+def count_taxonomy_skills(skills: list, taxonomy: set) -> float:
+    total = 0.0
+    for s in skills:
+        if skill_matches_taxonomy(s["name"], taxonomy):
+            prof_map = {"beginner": 0.25, "intermediate": 0.5, "advanced": 0.75, "expert": 1.0}
+            duration_factor = min(s.get("duration_months", 0) / 36.0, 1.0)
+            total += prof_map.get(s.get("proficiency", "beginner"), 0.25) * duration_factor
+    return total
+
+
+def normalize_city(city: str) -> str:
+    if not city:
+        return ""
+    c = city.lower().split(",")[0].strip()
+    for alias, canonical in CITY_ALIASES.items():
+        if c == alias:
+            return canonical
+    return c
+
+
+def gaussian_score(value: float, center: float, sigma: float, max_score: float) -> float:
+    return max_score * math.exp(-0.5 * ((value - center) / sigma) ** 2)
