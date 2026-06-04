@@ -13,7 +13,6 @@ import faiss
 import requests
 
 from src.config import (
-    EMBEDDING_MODEL,
     EMBEDDING_BATCH_SIZE,
     EMBEDDING_CHECKPOINT_EVERY,
     BGE_M3_API_URL,
