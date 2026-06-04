@@ -28,7 +28,7 @@ def test_uses_bge_m3_endpoint():
     with patch("src.retrieval.requests.post", return_value=_fake_response(fake_vectors)) as mock_post:
         compute_bge_m3_embeddings(texts, checkpoint_path=None)
     called_url = mock_post.call_args.args[0]
-    assert called_url == "http://192.168.31.246:5000/embed"
+    assert called_url == "http://192.168.31.246:5001/embed"
     payload = mock_post.call_args.kwargs["json"]
     assert payload == {"inputs": ["a"]}
 
