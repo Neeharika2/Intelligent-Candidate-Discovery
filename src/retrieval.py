@@ -50,16 +50,22 @@ def compute_bge_m3_embeddings(
 
     if checkpoint_path and os.path.exists(checkpoint_path):
         try:
-            data = np.load(checkpoint_path, allow_pickle=True)
-            if "embeddings" in data:
-                saved_embeds = data["embeddings"]
-                loaded_count = 0
-                for i in range(min(len(saved_embeds), len(texts))):
-                    emb = saved_embeds[i]
-                    if emb is not None and not np.all(emb == 0.0):
-                        all_embeddings[i] = list(emb)
-                        loaded_count += 1
-                print(f"Loaded {loaded_count} existing embeddings from checkpoint.")
+            with np.load(checkpoint_path, allow_pickle=True) as data:
+                if "embeddings" in data:
+                    saved_embeds = data["embeddings"]
+                    if saved_embeds.ndim == 2 and saved_embeds.shape[1] != BGE_M3_EMBEDDING_DIM:
+                        raise ValueError(
+                            f"Checkpoint dim mismatch: saved {saved_embeds.shape[1]}, "
+                            f"expected {BGE_M3_EMBEDDING_DIM}. "
+                            f"Delete {checkpoint_path} and re-run."
+                        )
+                    loaded_count = 0
+                    for i in range(min(len(saved_embeds), len(texts))):
+                        emb = saved_embeds[i]
+                        if emb is not None and not np.all(emb == 0.0):
+                            all_embeddings[i] = list(emb)
+                            loaded_count += 1
+                    print(f"Loaded {loaded_count} existing embeddings from checkpoint.")
         except Exception as e:
             print(f"Error loading checkpoint: {e}. Starting fresh.")
 
@@ -81,6 +87,12 @@ def compute_bge_m3_embeddings(
                     json={"inputs": batch_texts},
                     timeout=BGE_M3_REQUEST_TIMEOUT,
                 )
+                if 400 <= resp.status_code < 500:
+                    print(
+                        f"BGE-M3 returned {resp.status_code} (client error, not retrying): "
+                        f"{resp.text[:500]}"
+                    )
+                    return batch_idxs, [[0.0] * BGE_M3_EMBEDDING_DIM for _ in batch_texts]
                 resp.raise_for_status()
                 vectors = resp.json()
                 if not isinstance(vectors, list) or len(vectors) != len(batch_texts):
@@ -90,7 +102,7 @@ def compute_bge_m3_embeddings(
                         f"expected {len(batch_texts)}"
                     )
                 return batch_idxs, vectors
-            except Exception as e:
+            except (requests.exceptions.RequestException, OSError, ValueError, json.JSONDecodeError) as e:
                 retries += 1
                 wait_time = min(2 ** retries, 60)
                 print(f"Embedding batch failed ({e}), retrying in {wait_time}s...")

@@ -59,12 +59,17 @@ def run_precompute(
     np.save(os.path.join(output_dir, "embeddings.npy"), embeddings)
 
     import requests
-    query_resp = requests.post(
-        BGE_M3_API_URL,
-        json={"inputs": [ideal_profile]},
-        timeout=BGE_M3_REQUEST_TIMEOUT,
-    )
-    query_resp.raise_for_status()
+    try:
+        query_resp = requests.post(
+            BGE_M3_API_URL,
+            json={"inputs": [ideal_profile]},
+            timeout=BGE_M3_REQUEST_TIMEOUT,
+        )
+        query_resp.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        raise RuntimeError(
+            f"BGE-M3 endpoint {BGE_M3_API_URL} unreachable: {e}"
+        ) from e
     query_embedding = np.array(query_resp.json()[0], dtype=np.float32)
     np.save(os.path.join(output_dir, "query_embedding.npy"), query_embedding)
 

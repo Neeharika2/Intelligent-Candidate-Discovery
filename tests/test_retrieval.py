@@ -49,3 +49,16 @@ def test_preserves_input_order():
     assert result[0, 0] == 1.0
     assert result[1, 0] == 2.0
     assert result[2, 0] == 3.0
+
+
+def test_4xx_response_does_not_retry():
+    texts = ["a", "b"]
+    bad_resp = MagicMock()
+    bad_resp.status_code = 422
+    bad_resp.text = "malformed payload"
+    bad_resp.raise_for_status = MagicMock()
+    with patch("src.retrieval.requests.post", return_value=bad_resp) as mock_post:
+        result = compute_bge_m3_embeddings(texts, checkpoint_path=None)
+    assert mock_post.call_count == 1, "4xx should not be retried"
+    assert result.shape == (2, 1024)
+    assert np.all(result == 0.0)
