@@ -1,0 +1,22 @@
+# submission_metadata.yaml
+team_name: "Neeharika2"
+primary_contact_name: "Neeharika"
+primary_contact_email: "neeharikagudipudi@gmail.com"  # FIXME: Update with your registered email
+primary_contact_phone: "+91-9866538293"         # FIXME: Update with your registered phone number
+
+github_repository_url: "https://github.com/Neeharika2/Intelligent-Candidate-Discovery"
+sandbox_demo_link: "https://share.streamlit.io/neeharika2/intelligent-candidate-discovery/app.py"  # FIXME: Update if hosted on Streamlit Cloud
+
+ai_tools_declared:
+  - Gemini
+  - Claude
+  - Cursor
+
+compute_environment_summary: "Windows 11, 16GB RAM, Python 3.11"
+
+team_members:
+  - name: "Neeharika"
+    email: "neeharikagudipudi@gmail.com"  # FIXME: Update with your registered email
+
+methodology_summary: >
+  A hybrid, offline-first candidate discovery system. Uses BM25 lexical search and FAISS-based BGE-M3 dense vector search combined via Reciprocal Rank Fusion (RRF, K=60) for high recall, followed by timeline-based honeypot filtration. Retained candidates are scored via a multi-dimensional feature model (technical, experience, behavioral, location) and blended with DeepSeek-v4-flash re-ranking (40% weight) of the top 500. Final rankings are sorted and percentile-normalized into NDCG-optimized relevance tiers.
